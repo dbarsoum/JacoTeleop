@@ -20,26 +20,14 @@ def generate_launch_description():
                                   description="IP address of the robot"),
             DeclareLaunchArgument(name="use_realsense", default_value="true",
                                   description="whether or not to use realsense camera."),
-            DeclareLaunchArgument(name="run_franka_teleop", default_value="true",
+            DeclareLaunchArgument(name="run_jaco_teleop", default_value="true",
                                   description="whether or not to run franka teleop."),
             DeclareLaunchArgument(name="rviz_file", default_value="integrate_servo.rviz",
                                   description="rviz file to use."),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([PathJoinSubstitution(
-                    [FindPackageShare('franka_teleop'), 'launch', 'franka_rviz.launch.py'])]),
-                condition=IfCondition(LaunchConfiguration("use_rviz")),
-                launch_arguments={'robot_ip': LaunchConfiguration("robot_ip"),
-                                  'use_fake_hardware': LaunchConfiguration("use_fake_hardware"),
-                                  'use_rviz': 'true',
-                                  'rviz_file': PathJoinSubstitution([FindPackageShare('cv_franka_bridge'),'config',LaunchConfiguration('rviz_file')])}.items(),
-            ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([PathJoinSubstitution(
-                    [FindPackageShare('franka_teleop'), 'launch', 'franka_servo.launch.py'])]),
-                condition=IfCondition(LaunchConfiguration("run_franka_teleop")),
-                launch_arguments={'robot_ip': LaunchConfiguration("robot_ip"),
-                                  'use_fake_hardware': LaunchConfiguration("use_fake_hardware"),
-                                  'use_rviz': 'false'}.items(),
+                    [FindPackageShare('jaco_ros2_interaction'), 'launch', 'jaco_base.launch.xml'])]),
+                condition=IfCondition(LaunchConfiguration("run_jaco_teleop")),
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([PathJoinSubstitution(
@@ -56,16 +44,12 @@ def generate_launch_description():
             Node(
                 package='tf2_ros',
                 executable='static_transform_publisher',
-                arguments = ['--x', '0', '--y', '0', '--z', '0', '--yaw', '-1.5708', '--pitch', '0', '--roll', '-1.5708', '--frame-id', 'panda_link0', '--child-frame-id', 'camera_link']
+                arguments = ['--x', '0', '--y', '0', '--z', '0', '--yaw', '-1.5708', '--pitch', '0', '--roll', '-1.5708', '--frame-id', 'j2s7s300_link_base', '--child-frame-id', 'camera_link']
             ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([PathJoinSubstitution(
-                    [FindPackageShare('franka_gripper'), 'launch', 'gripper.launch.py'])]),
-                condition=IfCondition(LaunchConfiguration("run_franka_teleop")),
-                launch_arguments={'robot_ip': LaunchConfiguration("robot_ip"),
-                                  'use_fake_hardware': LaunchConfiguration("use_fake_hardware")}.items(),
-            ),
-            # SetLaunchConfiguration(
-            #     "robot_ip", PythonExpression(["'\"dont-care\" if ", LaunchConfiguration("use_fake_hardware"), " == \"true\" else \"panda0.robot\"'"])),
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([PathJoinSubstitution(
+            #         [FindPackageShare('franka_gripper'), 'launch', 'gripper.launch.py'])]),
+            #     condition=IfCondition(LaunchConfiguration("run_franka_teleop")),
+            # ),
         ]
     )
