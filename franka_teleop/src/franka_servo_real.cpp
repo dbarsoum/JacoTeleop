@@ -5,8 +5,12 @@
 #include <atomic>
 #include "rclcpp/rclcpp.hpp"
 #include <chrono>
-#include <moveit_servo/servo.hpp>
-#include <moveit_servo/utils/common.hpp>
+#include <moveit_servo/servo.h>
+#include <moveit_servo/servo_parameters.h>
+#include <moveit_servo/servo_calcs.h>
+#include <moveit_servo/collision_check.h>
+// #include <moveit_servo/utils/common.h>
+#include <moveit_servo/utilities.h>
 #include <mutex>
 #include <std_srvs/srv/empty.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -47,8 +51,8 @@ int main(int argc, char* argv[])
 
   // Get the servo parameters.
   const std::string param_namespace = "moveit_servo";
-  const std::shared_ptr<const servo::ParamListener> servo_param_listener =
-      std::make_shared<const servo::ParamListener>(demo_node, param_namespace);
+  const ServoParameters::SharedConstPtr& servo_param_listener =
+      std::make_shared<const servo::ServoParameters>(demo_node, param_namespace);
   const servo::Params servo_params = servo_param_listener->get_params();
 
   // The publisher to send trajectory message to the robot controller.
