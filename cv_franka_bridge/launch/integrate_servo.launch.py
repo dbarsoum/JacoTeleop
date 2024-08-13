@@ -3,11 +3,12 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess, Shutdown, DeclareLaunchArgument, IncludeLaunchDescription
 from ament_index_python.packages import get_package_share_directory
-from moveit_configs_utils import MoveItConfigsBuilder
+# from moveit_configs_utils import MoveItConfigsBuilder
 from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, FindExecutable, Command, AndSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 
 def generate_launch_description():
     return LaunchDescription(
@@ -24,11 +25,11 @@ def generate_launch_description():
                                   description="whether or not to run franka teleop."),
             DeclareLaunchArgument(name="rviz_file", default_value="integrate_servo.rviz",
                                   description="rviz file to use."),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([PathJoinSubstitution(
-                    [FindPackageShare('jaco_ros2_interaction'), 'launch', 'jaco_base.launch.xml'])]),
-                condition=IfCondition(LaunchConfiguration("run_jaco_teleop")),
-            ),
+            # IncludeLaunchDescription(
+            #     XMLLaunchDescriptionSource([PathJoinSubstitution(
+            #         [FindPackageShare('jaco_ros2_interaction'), 'jaco_base.launch.xml'])]),
+            #     condition=IfCondition(LaunchConfiguration("run_jaco_teleop")),
+            # ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([PathJoinSubstitution(
                     [FindPackageShare('handcv'), 'launch', 'camera.launch.py'])]),
@@ -46,6 +47,13 @@ def generate_launch_description():
                 executable='static_transform_publisher',
                 arguments = ['--x', '0', '--y', '0', '--z', '0', '--yaw', '-1.5708', '--pitch', '0', '--roll', '-1.5708', '--frame-id', 'j2s7s300_link_base', '--child-frame-id', 'camera_link']
             ),
+            
+            Node(
+                package='jaco_ros2_teleop',
+                executable='hybrid_uservel_to_cartesianvel',
+                output='screen',
+                condition=IfCondition(LaunchConfiguration("run_jaco_teleop")),
+            )
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource([PathJoinSubstitution(
             #         [FindPackageShare('franka_gripper'), 'launch', 'gripper.launch.py'])]),

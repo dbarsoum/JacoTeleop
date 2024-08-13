@@ -28,13 +28,14 @@ from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from hand_interfaces.msg import FingerData
 
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from .mediapipehelper import MediaPipeRos as mps
 
 import mediapipe as mp
 import numpy as np
 import cv2 as cv
-
+import sys
 
 class HandCV(Node):
     def __init__(self):
@@ -56,11 +57,14 @@ class HandCV(Node):
 
         # create subscribers
         self.color_image_raw_sub = self.create_subscription(
-            Image, '/camera/color/image_raw', self.color_image_raw_callback, 10)
+            Image, '/camera/camera/color/image_raw', self.color_image_raw_callback, 10)
 
         self.depth_image_raw_sub = self.create_subscription(
-            Image, '/camera/aligned_depth_to_color/image_raw', self.depth_image_raw_callback, 10)
-
+            Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_image_raw_callback, 10)
+        
+        # self.depth_image_raw_sub = self.create_subscription(
+        #     Image, '/camera/camera/depth/image_rect_raw', self.depth_image_raw_callback, 10)
+        
         # create publishers
         self.cv_image_pub = self.create_publisher(Image, 'cv_image', 10)
 
@@ -82,9 +86,22 @@ class HandCV(Node):
 
     def depth_image_raw_callback(self, msg):
         """Capture depth images and convert them to OpenCV images."""
-        self.depth_image = self.bridge.imgmsg_to_cv2(
-            msg, desired_encoding="passthrough")
-        self.depth_image = cv.flip(self.depth_image, 1)
+        try:
+            self.depth_image = self.bridge.imgmsg_to_cv2(
+                msg, desired_encoding="passthrough")
+            self.depth_image = cv.flip(self.depth_image, 1)
+            self.depth_image = np.array(self.depth_image, dtype=np.float32)
+        
+        except CvBridgeError as e:
+            self.get_logger().error(f"Error converting depth image: {e}")
+        # self.depth_image = self.bridge.imgmsg_to_cv2(
+        #     msg, desired_encoding="passthrough")
+        # self.depth_image = cv.flip(self.depth_image, 1)
+        # self.depth_image = np.array(self.depth_image, dtype=np.float32)
+        # convert the image to point cloud
+        # self.get_logger().info(f"Depth Image: {self.depth_image}")
+        
+        # self.get_logger().info(f"Depth Image Shape in callback: {self.depth_image.shape}")
 
     def color_image_raw_callback(self, msg):
         """Cpature color images and convert them to OpenCV images."""
@@ -153,8 +170,13 @@ class HandCV(Node):
             sum_x = np.sum(coords[:, 0])
             sum_y = np.sum(coords[:, 1])
             self.centroid = np.array([sum_x/length, sum_y/length, 0.0])
+            
+        # self.get_logger().info(f"Centroid: {self.centroid}")
+        # self.get_logger().info(f"depth image before: {self.depth_image}")
+        # self.get_logger().info(f"Depth Image Shape: {self.depth_image.shape}")
+        # self.get_logger().info(f"depth_image sequesnce: {self.depth_image[int(self.centroid[1]), int(self.centroid[0])]}")
 
-        self.centroid[2] = self.depth_image[int(self.centroid[1]), int(self.centroid[0])]
+        # self.centroid[2] = self.depth_image[int(self.centroid[1]), int(self.centroid[0])]
 
         self.waypoint.pose.position.x = self.centroid[0]
         self.waypoint.pose.position.y = self.centroid[1]
@@ -188,8 +210,8 @@ class HandCV(Node):
 
             return annotated_image, detection_result
 
-        except CvBridgeError:
-            self.get_logger().error(CvBridgeError)
+        except Exception as e:
+            self.get_logger().error(f"Error processing color image: {e}")
 
     def timer_callback(self):
         """Publish the annotated image and the waypoint for the arm"""

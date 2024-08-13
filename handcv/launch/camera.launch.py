@@ -4,10 +4,10 @@ from launch_ros.substitutions import FindPackageShare
 from launch.actions import (DeclareLaunchArgument, Shutdown, IncludeLaunchDescription,
                             SetLaunchConfiguration)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import (PathJoinSubstitution, LaunchConfiguration, EqualsSubstitution,
+from launch.substitutions import (PathJoinSubstitution, LaunchConfiguration,
                                   Command, FindExecutable, PythonExpression)
 from launch.conditions import IfCondition, UnlessCondition
-from moveit_configs_utils import MoveItConfigsBuilder
+# from moveit_configs_utils import MoveItConfigsBuilder
 
 from ament_index_python import get_package_share_directory
 import yaml
@@ -27,8 +27,7 @@ def generate_launch_description():
                     'rs_launch.py'
                 ])
             ),
-            condition=IfCondition(EqualsSubstitution(
-                LaunchConfiguration("use_realsense"), "true")),
+            condition=IfCondition(LaunchConfiguration("use_realsense")),
             launch_arguments={
                 "align_depth.enable": "true",
                 "pointcloud.enable": "true",

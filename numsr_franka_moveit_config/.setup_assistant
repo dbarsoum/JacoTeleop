@@ -1,6 +1,6 @@
 moveit_setup_assistant_config:
   urdf:
-    package: franka_teleop
+    package: jaco_teleop
     relative_path: config/panda_arm.urdf
   srdf:
     relative_path: config/panda.srdf

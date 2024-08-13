@@ -21,7 +21,9 @@ ACTION CLIENTS:
 
 """
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
-from franka_teleop.srv import PlanPath
+from jaco_teleop.srv import PlanPath
+from jaco_ros2_interfaces.msg import InterfaceSignal
+from jaco_ros2_interfaces.srv import ControlSpace
 
 from visualization_msgs.msg import Marker
 
@@ -34,7 +36,7 @@ from tf2_geometry_msgs import PoseStamped
 import tf2_ros
 from tf_transformations import quaternion_from_euler, euler_from_quaternion
 
-from franka_msgs.action import Homing, Grasp
+# from franka_msgs.action import Homing, Grasp
 
 import rclpy
 from rclpy.node import Node
@@ -61,12 +63,31 @@ class CvFrankaBridge(Node):
         self.text_marker_publisher = self.create_publisher(Marker, 'text_marker', 10)
         self.bounding_box_publisher = self.create_publisher(Marker, 'bounding_box', 10)
 
-        # create clients
-        self.waypoint_client = self.create_client(PlanPath, 'robot_waypoints')
-        self.waypoint_client.wait_for_service(timeout_sec=2.0)
+        # # create clients
+        # self.waypoint_client = self.create_client(PlanPath, 'robot_waypoints')
+        # self.waypoint_client.wait_for_service(timeout_sec=2.0)
+        
+        self.interface_signal_pub = self.create_publisher(InterfaceSignal, '/user_vel', 10)
+        
+        self._cart_vel = (np.zeros(6)).tolist()
+        # interface signal message
+        self.send_interface_signal = InterfaceSignal()
+        self.send_interface_signal.header.stamp = self.get_clock().now().to_msg()
+        self.send_interface_signal.header.frame_id = 'j2s7s300_link_base'
+        self.send_interface_signal.interface_signal =  self._cart_vel # [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.send_interface_signal.mode_switch = False
+        self.send_interface_signal.interface_action = 'Not Applicable'
+        
+        self.control_space_client = self.create_client(ControlSpace, "control_space")
+        while not self.control_space_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('control space service not available, waiting again...')
+        self.req = ControlSpace.Request()
+        self.req.data = "cartesian"
+        self.future = self.control_space_client.call_async(self.req)
+        rclpy.spin_until_future_complete(self, self.future)
 
         # create timer
-        self.timer = self.create_timer(0.04, self.timer_callback)
+        self.timer = self.create_timer(0.01, self.timer_callback)
 
         # create action clients
         # self.gripper_homing_client = ActionClient(
@@ -179,11 +200,11 @@ class CvFrankaBridge(Node):
         marker.color.b = 1.0
         return marker
 
-    def gripper_homing_callback(self, request, response):
-        """Callback for the gripper homing service."""
-        goal = Homing.Goal()
-        self.gripper_homing_client.send_goal_async(goal, feedback_callback=self.feedback_callback)
-        return response
+    # def gripper_homing_callback(self, request, response):
+    #     """Callback for the gripper homing service."""
+    #     goal = Homing.Goal()
+    #     self.gripper_homing_client.send_goal_async(goal, feedback_callback=self.feedback_callback)
+    #     return response
 
     def get_transform(self, target_frame, source_frame):
         """Get the transform between two frames."""
@@ -261,6 +282,9 @@ class CvFrankaBridge(Node):
 
             self.text_marker = self.create_text_marker(msg.data)
             self.move_robot = False
+            
+        if msg.data == 'Open_Palm':
+            self.text_marker = self.create_text_marker(msg.data)
 
         # elif msg.data == "Closed_Fist" and self.gripper_ready and self.gripper_status == "Open":
         #     # if closed fist, close the gripper
@@ -298,6 +322,7 @@ class CvFrankaBridge(Node):
             self.count = 0
 
         if self.prev_gesture == "Thumb_Up" and msg.data != "Thumb_Up":
+            self.get_logger().info("MOVE ROBOT BRO")
             self.move_robot = True
             self.offset = self.current_waypoint
             self.initial_ee_pose = self.get_ee_pose()
@@ -345,6 +370,7 @@ class CvFrankaBridge(Node):
         self.text_marker_publisher.publish(self.text_marker)
         self.bounding_box_publisher.publish(self.bounding_box_marker)
         if self.move_robot:
+            self.get_logger().info("MOVE ROBOT")
             # find the end-effector's position relative to the offset, which was
             # set the last time the user made a thumbs up gesture
             delta = Pose()
@@ -389,7 +415,8 @@ class CvFrankaBridge(Node):
         pitch_output = self.kp_angle * pitch_error + self.kd_angle * pitch_derivative
         yaw_output = self.kp_angle * yaw_error + self.kd_angle * yaw_derivative
 
-        euler_output = [roll_output, -pitch_output, -yaw_output]
+        # euler_output = [roll_output, -pitch_output, -yaw_output]
+        euler_output = [0.0, 0.0, 0.0]
 
         self.roll_error_prior = roll_error
         self.pitch_error_prior = pitch_error
@@ -413,10 +440,36 @@ class CvFrankaBridge(Node):
         robot_move.pose.position.y = np.round(-output * (self.desired_ee_pose.position.y - ee_pose.position.y),4)
         robot_move.pose.position.z = np.round(-output * (self.desired_ee_pose.position.z - ee_pose.position.z),4)
 
-        planpath_request = PlanPath.Request()
-        planpath_request.waypoint = robot_move
-        planpath_request.angles = euler_output
-        future = self.waypoint_client.call_async(planpath_request)
+        # planpath_request = PlanPath.Request()
+        # planpath_request.waypoint = robot_move
+        # planpath_request.angles = euler_output
+        # # self.get_logger().info(f"waypoints: {robot_move}")
+        # # self.get_logger().info(f"Angles: {euler_output}")
+        # future = self.waypoint_client.call_async(planpath_request)
+        
+        # x = 0.5
+        # y = 0.0
+        # z = 0.0
+        # self._cart_vel = [x, y, z,
+        #                 euler_output[0], euler_output[1], euler_output[2]]
+        self.get_logger().info(f"{(self.desired_ee_pose.position.x - ee_pose.position.x)}")
+        self.get_logger().info(f"{(self.desired_ee_pose.position.y - ee_pose.position.y)}")
+        self.get_logger().info(f"{(self.desired_ee_pose.position.z - ee_pose.position.z)}")
+        self._cart_vel = [robot_move.pose.position.x, robot_move.pose.position.y, robot_move.pose.position.z,
+                        euler_output[0], euler_output[1], euler_output[2]]
+        
+        
+        # send to /user_vel
+        self.send_interface_signal.interface_signal = self._cart_vel
+        self.send_interface_signal.header.stamp = self.get_clock().now().to_msg()
+        self.interface_signal_pub.publish(self.send_interface_signal)
+        
+        if self.move_robot == False:
+            self._cart_vel = (np.zeros(6)).tolist()
+            self.send_interface_signal.interface_signal = self._cart_vel
+            self.send_interface_signal.header.stamp = self.get_clock().now().to_msg()
+            self.interface_signal_pub.publish(self.send_interface_signal)
+        
         # else:
         #     # even if the robot is not tracking the hand, we need to enforce
         #     # that it stays in the same place
