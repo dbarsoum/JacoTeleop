@@ -465,6 +465,7 @@ class CvFrankaBridge(Node):
         self.interface_signal_pub.publish(self.send_interface_signal)
         
         if self.move_robot == False:
+            # our robot needs to be told to stop pusblishing the interface signal to work
             self._cart_vel = (np.zeros(6)).tolist()
             self.send_interface_signal.interface_signal = self._cart_vel
             self.send_interface_signal.header.stamp = self.get_clock().now().to_msg()
